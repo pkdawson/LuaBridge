@@ -1,7 +1,7 @@
 //------------------------------------------------------------------------------
 /*
   https://github.com/vinniefalco/LuaBridge
-  
+
   Copyright 2012, Vinnie Falco <vinnie.falco@gmail.com>
   Copyright 2007, Nathan Reed
 
@@ -272,7 +272,7 @@ private:
       rawsetfield (L, -2, "__newindex");
       lua_newtable (L);
       rawsetfield (L, -2, "__propget");
-      
+
       if (Security::hideMetatables ())
       {
         lua_pushnil (L);
@@ -457,7 +457,7 @@ private:
 
       assert (lua_istable (L, -1));
       rawgetfield (L, -1, name);
-      
+
       if (lua_isnil (L, -1))
       {
         lua_pop (L, 1);
@@ -586,7 +586,7 @@ private:
     {
       typedef U (*get_t)();
       typedef void (*set_t)(U);
-      
+
       assert (lua_istable (L, -1));
 
       rawgetfield (L, -1, "__propget");
@@ -801,7 +801,7 @@ private:
     /**
         Add or replace a member function.
     */
-    
+
     template <class FP>
     Class <T>& addFunction (char const* name, FP fp)
     {
@@ -1051,7 +1051,7 @@ public:
 
     return *this;
   }
-  
+
   //----------------------------------------------------------------------------
   /**
       Add or replace a property.
@@ -1059,7 +1059,7 @@ public:
       If the set function is omitted or null, the property is read-only.
   */
   template <class TG, class TS>
-  Namespace& addProperty (char const* name, TG (*get) (), void (*set)(TS) = 0)
+  Namespace& addProperty (char const* name, TG (*get) (), void (*set)(TS))
   {
     assert (lua_istable (L, -1));
 
@@ -1073,17 +1073,36 @@ public:
 
     rawgetfield (L, -1, "__propset");
     assert (lua_istable (L, -1));
-    if (set != 0)
-    {
-      typedef void (*set_t) (TS);
-      new (lua_newuserdata (L, sizeof (set_t))) set_t (set);
-      lua_pushcclosure (L, &CFunc::Call <void (*) (TS)>::f, 1);
-    }
-    else
-    {
-      lua_pushstring (L, name);
-      lua_pushcclosure (L, &CFunc::readOnlyError, 1);
-    }
+
+    typedef void (*set_t) (TS);
+    new (lua_newuserdata (L, sizeof (set_t))) set_t (set);
+    lua_pushcclosure (L, &CFunc::Call <void (*) (TS)>::f, 1);
+
+    rawsetfield (L, -2, name);
+    lua_pop (L, 1);
+
+    return *this;
+  }
+
+  template <class TG>
+  Namespace& addProperty (char const* name, TG (*get) ())
+  {
+    assert (lua_istable (L, -1));
+
+    rawgetfield (L, -1, "__propget");
+    assert (lua_istable (L, -1));
+    typedef TG (*get_t) ();
+    new (lua_newuserdata (L, sizeof (get_t))) get_t (get);
+    lua_pushcclosure (L, &CFunc::Call <TG (*) (void)>::f, 1);
+    rawsetfield (L, -2, name);
+    lua_pop (L, 1);
+
+    rawgetfield (L, -1, "__propset");
+    assert (lua_istable (L, -1));
+
+    lua_pushstring (L, name);
+    lua_pushcclosure (L, &CFunc::readOnlyError, 1);
+
     rawsetfield (L, -2, name);
     lua_pop (L, 1);
 
